@@ -1,6 +1,6 @@
 """
 Main file to run VAE for missing data imputation.
-Presented at IFAC MMM2018 by JT McCoy and L Auret.
+Presented at IFAC MMM2018 by JT McCoy, RS Kroon and L Auret.
 
 Based on implementations
 of VAEs from:
