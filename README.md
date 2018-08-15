@@ -1,5 +1,6 @@
 # IFAC-VAE-Imputation
 Demonstration code for missing data imputation using Variational Autoencoders (VAE)
+
 Copyright 2017, 2018 JT McCoy and L Auret
 
 Paper presented at IFAC MMM2018 (http://ifac-mmm.csu.edu.cn/), paper link to be updated.
