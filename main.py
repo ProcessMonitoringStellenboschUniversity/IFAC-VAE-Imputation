@@ -25,7 +25,8 @@ import random
 ==============================================================================
 '''
 # DEFINE HYPERPARAMETERS
-# Select data source:
+
+# select data source:
 # can be "mill" or "X"
 data_source = "X"
 
@@ -52,7 +53,7 @@ training_epochs = 500
 batch_size = 250
 learning_rate = 0.001
 
-# 
+# specify number of imputation iterations:
 ImputeIter = 25
 '''
 ==============================================================================
