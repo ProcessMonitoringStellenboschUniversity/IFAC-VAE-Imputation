@@ -95,24 +95,22 @@ Xdata_Missing[NanIndex] = np.nan
 del Xdata_Missing_complete
 Xdata = sc.transform(Xdata)
 
-def next_batch(Xdata,batch_size, **options):
+def next_batch(Xdata,batch_size, MissingVals = False):
     """ Randomly sample batch_size elements from the matrix of data, Xdata.
         Xdata is an [NxM] matrix, N observations of M variables.
         batch_size must be smaller than N.
         
         Returns Xdata_sample, a [batch_size x M] matrix.
     """
-    if options.get("MissingVals") == True:
-        MissingVals = True
-    else:
-        MissingVals = False
     if MissingVals:
-        # This returns incomplete records:
-        NanRowIndex = np.where(np.isnan(np.sum(Xdata,axis=1)))
-        X_indices = random.sample(list(NanRowIndex[0]),batch_size)
+        # This returns records with any missing values replaced by 0:
+        Xdata_length = Xdata.shape[0]
+        X_indices = random.sample(range(Xdata_length),batch_size)
         Xdata_sample = np.copy(Xdata[X_indices,:])
+        NanIndex = np.where(np.isnan(Xdata_sample))
+        Xdata_sample[NanIndex] = 0
     else:
-        # This returns complete records:
+        # This returns complete records only:
         ObsRowIndex = np.where(np.isfinite(np.sum(Xdata,axis=1)))
         X_indices = random.sample(list(ObsRowIndex[0]),batch_size)
         Xdata_sample = np.copy(Xdata[X_indices,:])
@@ -166,6 +164,18 @@ for plotnum in range(subplotmax):
     plt.tick_params(labelsize='small')
 plt.show()
 
+# plot imputation results for one variable:
+var_i = 0
+min_i = np.min(Xdata[:,var_i])
+max_i = np.max(Xdata[:,var_i])
+
+fig = plt.figure(dpi = 150)
+plt.plot(Xdata[NanIndex[0][np.where(NanIndex[1]==var_i)],var_i],X_impute[NanIndex[0][np.where(NanIndex[1]==var_i)],var_i],'.')
+plt.plot([min_i, max_i], [min_i, max_i])
+plt.xlabel('True value')
+plt.ylabel('Imputed value')
+plt.show()
+
 # Standardise Xdata_Missing and Xdata wrt Xdata:
 Xdata = sc.inverse_transform(Xdata)
 X_impute = sc.inverse_transform(X_impute)
@@ -184,8 +194,8 @@ print(ReconstructionError_baseline)
 '''
 # GENERATE VALUES AND PLOT HISTOGRAMS
 np_x = next_batch(Xdata_Missing, 2000)
-x_hat = vae.reconstruct(np_x)
-x_hat = x_hat.eval()
+# reconstruct data by sampling from distribution of reconstructed variables:
+x_hat = vae.reconstruct(np_x, sample = 'sample')
 
 x_hat_prior = vae.generate(n_samples = 1000)
 x_hat_prior = x_hat_prior.eval()
