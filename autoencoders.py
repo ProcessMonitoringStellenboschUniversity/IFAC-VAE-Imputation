@@ -157,9 +157,13 @@ class TFVariationalAutoencoder(object):
                                            - tf.exp(self.z_log_sigma_sq), 1)
         self.cost = tf.reduce_mean(reconstr_loss + latent_loss)   # average over batch
         
-        # Use ADAM optimizer
+#        # Use ADAM optimizer
+#        self.optimizer = \
+#            tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+        
+        # Use RMSProp optimizer
         self.optimizer = \
-            tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+            tf.train.RMSPropOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
         
     def partial_fit(self, X):
         """Train model based on mini-batch of input data.
@@ -198,18 +202,30 @@ class TFVariationalAutoencoder(object):
         
         return x_hat_gen
     
-    def reconstruct(self, X):
-        """ Use VAE to reconstruct given data, by sampling from the 
-            Gaussian distribution
+    def reconstruct(self, X, sample = 'mean'):
+        """ Use VAE to reconstruct given data, using the mean of the 
+            Gaussian distribution of the reconstructed variables by default, 
+            as this gives better imputation results.
+            Data can also be reconstructed by sampling from the Gaussian
+            distribution of the reconstructed variables, by specifying the
+            input variable "sample" to value 'sample'.
         """
-        x_hat_mu, x_hat_logsigsq = self.sess.run((self.x_hat_mean, self.x_hat_log_sigma_sq), 
+        if sample == 'sample':
+            x_hat_mu, x_hat_logsigsq = self.sess.run((self.x_hat_mean, self.x_hat_log_sigma_sq), 
                              feed_dict={self.x: X})
         
-        eps = tf.random_normal(tf.shape(X), 0, 1, 
+            eps = tf.random_normal(tf.shape(X), 0, 1, 
                                dtype=tf.float32)
-        # x_hat = mu + sigma*epsilon
-        x_hat = tf.add(x_hat_mu, 
+            # x_hat = mu + sigma*epsilon
+            x_hat = tf.add(x_hat_mu, 
                         tf.multiply(tf.sqrt(tf.exp(x_hat_logsigsq)), eps))
+            # evaluate the tensor, as indexing into tensors seems to be a
+            # a missing function in tf:
+            x_hat = x_hat.eval()
+        else:
+            x_hat_mu = self.sess.run(self.x_hat_mean, 
+                             feed_dict={self.x: X})
+            x_hat = x_hat_mu
         
         return x_hat
     
@@ -229,11 +245,10 @@ class TFVariationalAutoencoder(object):
         
         for i in range(max_iter):
             MissVal[i,:] = x_miss_val[NanIndex]
+            
+            # reconstruct the inputs, using the mean:
             x_reconstruct = self.reconstruct(x_miss_val)
-            # evaluate the tensor, as indexing into tensors seems to be a
-            # a missing function in tf:
-            x_reconstructi = x_reconstruct.eval()
-            x_miss_val[NanIndex] = x_reconstructi[NanIndex]
+            x_miss_val[NanIndex] = x_reconstruct[NanIndex]
         
         X_corrupt[NanRowIndex,:] = x_miss_val
         X_imputed = X_corrupt
@@ -244,24 +259,22 @@ class TFVariationalAutoencoder(object):
     def train(self, XData, training_epochs=10, display_step=10):
         """ Train VAE in a loop, using numerical data"""
         
-        def next_batch(Xdata,batch_size, **options):
+        def next_batch(Xdata,batch_size, MissingVals = False):
             """ Randomly sample batch_size elements from the matrix of data, Xdata.
                 Xdata is an [NxM] matrix, N observations of M variables.
                 batch_size must be smaller than N.
                 
                 Returns Xdata_sample, a [batch_size x M] matrix.
             """
-            if options.get("MissingVals") == True:
-                MissingVals = True
-            else:
-                MissingVals = False
             if MissingVals:
-                # This returns incomplete records:
-                NanRowIndex = np.where(np.isnan(np.sum(Xdata,axis=1)))
-                X_indices = random.sample(list(NanRowIndex[0]),batch_size)
+                # This returns records with any missing values replaced by 0:
+                Xdata_length = Xdata.shape[0]
+                X_indices = random.sample(range(Xdata_length),batch_size)
                 Xdata_sample = np.copy(Xdata[X_indices,:])
+                NanIndex = np.where(np.isnan(Xdata_sample))
+                Xdata_sample[NanIndex] = 0
             else:
-                # This returns complete records:
+                # This returns complete records only:
                 ObsRowIndex = np.where(np.isfinite(np.sum(Xdata,axis=1)))
                 X_indices = random.sample(list(ObsRowIndex[0]),batch_size)
                 Xdata_sample = np.copy(Xdata[X_indices,:])
@@ -279,7 +292,7 @@ class TFVariationalAutoencoder(object):
             total_batch = int(n_samples / self.batch_size)
             # Loop over all batches
             for i in range(total_batch):
-                batch_xs = next_batch(XData,self.batch_size)
+                batch_xs = next_batch(XData,self.batch_size, MissingVals = False)
                 # Fit training using batch data
                 cost = self.partial_fit(batch_xs)
                 # Compute average loss
