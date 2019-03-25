@@ -3,7 +3,7 @@ Demonstration code for missing data imputation using Variational Autoencoders (V
 
 Copyright 2017, 2018 JT McCoy, RS Kroon and L Auret
 
-Paper presented at IFAC MMM2018 (http://ifac-mmm.csu.edu.cn/), paper link to be updated.
+Paper presented at IFAC MMM2018 (http://ifac-mmm.csu.edu.cn/), paper link https://doi.org/10.1016/j.ifacol.2018.09.406.
 
 ## Overview
 This code demonstrates missing data imputation using a VAE for two data sets:
